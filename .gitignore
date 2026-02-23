@@ -1,0 +1,27 @@
+# --- Bases de Datos ---
+# Ignoramos el archivo de la DB para no subir datos de prueba al repo
+database/*.db
+database/*.sqlite3
+
+# --- Python ---
+# Archivos compilados y temporales
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Entornos Virtuales ---
+# Si decides usar venv, esto evita que subas gigas de librerías
+venv/
+env/
+ENV/
+.env
+
+# --- VS Code / IDEs ---
+# Configuraciones locales de tu editor
+.vscode/
+.idea/
+
+# --- Otros ---
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db

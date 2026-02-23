@@ -148,7 +148,6 @@ class Recepcion:
         if not medico: raise EntidadNotFoundError("Medico no registrado")
         return medico.citas_del_dia
 
-
 # ------------------ Menu ------------------
 
 def menu():
@@ -171,7 +170,6 @@ def menu():
         except ValueError: 
             print("Opción no valida\n")
             continue
-
 
         if opcion == 1:
             print("A decidido registrar paciente, si desea cancelar, presione Enter")
