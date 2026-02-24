@@ -1,5 +1,6 @@
 # ------------------ imports ------------------
 from enum import Enum
+from database import db
 
 # ------------------ excepciones ------------------
 class ClinicaError(Exception):
@@ -76,18 +77,63 @@ class Recepcion:
         self.medicos = {} # {rut: <medico>}
         self.lista_citas = {} # [id: <cita>]
 
+    # ---------- Cargar datos desde db ----------
+    def cargar_datos_desde_db(self):
+        self._cargar_pacientes()
+        self._cargar_medicos()  
+        self._cargar_citas()
+
+    def _cargar_pacientes(self):
+        filas = db.obtener_todos_los_pacientes()
+        for fila in filas:
+            rut, nombre, edad = fila
+            self.pacientes[rut] = Paciente(rut, nombre, edad)
+    
+    def _cargar_medicos(self):
+        filas = db.obtener_todos_los_medicos()
+        for fila in filas:
+            rut, nombre, especialidad, capacidad_atencion = fila
+            self.medicos[rut] = Medico(rut, nombre, especialidad, capacidad_atencion)
+
+    def _cargar_citas(self):
+        filas_citas = db.obtener_citas()
+        max_id = 0
+        for fila in filas_citas:
+            id_db, rut_p, rut_m, estado_str = fila
+            paciente = self.pacientes.get(rut_p)
+            medico = self.medicos.get(rut_m)
+
+            if paciente and medico:
+                # crear cita
+                nueva_cita = Cita(paciente, medico)
+                nueva_cita.id = id_db
+                nueva_cita.estado = EstadoCita(estado_str)
+                # guardar cita
+                self.lista_citas[id_db] = nueva_cita
+                paciente.citas.append(nueva_cita)
+                medico.citas_del_dia.append(nueva_cita)
+                # actualizar contador
+                if id_db > max_id:
+                    max_id = id_db
+
+        Cita.contador_id = max_id + 1
+
+
     # ----- Registros -----
     def registrar_paciente(self, rut, nombre, edad):
         if rut in self.pacientes:
             raise EntidadYaExisteError("El RUT ya se encuentra registrado")
         nuevo_paciente = Paciente(rut, nombre, edad)
+        db.insertar_paciente(nuevo_paciente)
         self.pacientes[nuevo_paciente.rut] = nuevo_paciente
         return nuevo_paciente
 
     def registrar_medico(self, rut, nombre, especialidad, capacidad_atencion):
+
         if rut in self.medicos:
             raise EntidadYaExisteError("El RUT ya se encuentra registrado")
         nuevo_medico = Medico(rut, nombre, especialidad, capacidad_atencion)
+        db.insertar_medico(nuevo_medico)
         self.medicos[nuevo_medico.rut] = nuevo_medico
         return nuevo_medico
 
@@ -106,22 +152,26 @@ class Recepcion:
         self.lista_citas[nueva_cita.id] = nueva_cita
         paciente.citas.append(nueva_cita)
         medico.citas_del_dia.append(nueva_cita)
+        db.insertar_cita(nueva_cita)
         return nueva_cita
 
     # Estados de citas -----
     def confirmar_cita(self, rut_paciente, id_cita):
         _, cita = self._validar_cita(rut_paciente, id_cita)
         cita.confirmar()
+        db.actualizar_estado_cita(cita.id, cita.estado.value)
         return cita
 
     def cancelar_cita(self, rut_paciente, id_cita):
         _, cita = self._validar_cita(rut_paciente, id_cita)
         cita.cancelar()
+        db.actualizar_estado_cita(cita.id, cita.estado.value)
         return cita
 
     def finalizar_cita(self, rut_paciente, id_cita):
         _, cita = self._validar_cita(rut_paciente, id_cita)
         cita.finalizar()
+        db.actualizar_estado_cita(cita.id, cita.estado.value)
         return cita
 
     def _validar_cita(self, rut_paciente, id_cita):
@@ -328,17 +378,6 @@ def menu():
 # ------------------ Pruebas ------------------
 if __name__ == "__main__":
     recepcion = Recepcion()
-
-    # --- Cargar Médicos ---
-    recepcion.registrar_medico("12.345.678-9", "Dr. Gregory House", "Diagnóstico", 2)
-    recepcion.registrar_medico("11.222.333-4", "Dra. Meredith Grey", "Cirugía General", 5)
-    recepcion.registrar_medico("10.987.654-3", "Dr. Shaun Murphy", "Pediatría", 3)
-
-    # --- Cargar Pacientes ---
-    recepcion.registrar_paciente("18.111.222-3", "John Doe", 34)
-    recepcion.registrar_paciente("17.444.555-6", "Jane Roe", 28)
-    recepcion.registrar_paciente("15.666.777-8", "Max Mustermann", 52)
-
-    print("✅ Datos de prueba cargados exitosamente.\n")
-    
+    recepcion.cargar_datos_desde_db()
+ 
     menu()
