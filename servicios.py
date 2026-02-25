@@ -1,6 +1,9 @@
 from modelos import Paciente, Medico, Cita, EstadoCita
-from excepciones import AutenticationError, CapacidadMedicoExcedidaError, CitaNotFoundError, EntidadNotFoundError, EntidadYaExisteError
+from excepciones import AutenticationError, CapacidadMedicoExcedidaError, CitaNotFoundError, ClinicaError, EntidadNotFoundError, EntidadYaExisteError, EstadoCitaError
 from database import db
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Recepcion:
     def __init__(self):
@@ -52,79 +55,129 @@ class Recepcion:
 
     # ----- Registros -----
     def registrar_paciente(self, rut, nombre, edad):
-        if rut in self.pacientes:
-            raise EntidadYaExisteError("El RUT ya se encuentra registrado")
-        nuevo_paciente = Paciente(rut, nombre, edad)
-        db.insertar_paciente(nuevo_paciente)
-        self.pacientes[nuevo_paciente.rut] = nuevo_paciente
-        return nuevo_paciente
+        try:
+            if rut in self.pacientes:
+                raise EntidadYaExisteError("El RUT ya se encuentra registrado")
+            nuevo_paciente = Paciente(rut, nombre, edad)
+            db.insertar_paciente(nuevo_paciente)
+            self.pacientes[nuevo_paciente.rut] = nuevo_paciente
+
+            logger.info(f"paciente registrado: {nombre} (RUT: {rut})")
+            return nuevo_paciente
+        except Exception as e:
+            logger.error(f"fallo al registrar paciente {rut}: {e}")
+            raise
 
     def registrar_medico(self, rut, nombre, especialidad, capacidad_atencion):
+        try:
+            if rut in self.medicos:
+                raise EntidadYaExisteError("El RUT ya se encuentra registrado")
+            nuevo_medico = Medico(rut, nombre, especialidad, capacidad_atencion)
+            db.insertar_medico(nuevo_medico)
+            self.medicos[nuevo_medico.rut] = nuevo_medico
 
-        if rut in self.medicos:
-            raise EntidadYaExisteError("El RUT ya se encuentra registrado")
-        nuevo_medico = Medico(rut, nombre, especialidad, capacidad_atencion)
-        db.insertar_medico(nuevo_medico)
-        self.medicos[nuevo_medico.rut] = nuevo_medico
-        return nuevo_medico
+            logger.info(f"Medico registrado: {nombre} (RUT: {rut})")
+            return nuevo_medico
+        except Exception as e:
+            logger.error(f"Fallo al registrar medico {rut}: {e}")
+            raise
 
     # ----- Citas -----
     def generar_cita(self, rut_paciente, rut_medico):
-        # Validar instancia en diccionario
-        paciente = self.pacientes.get(rut_paciente)
-        if not paciente: raise EntidadNotFoundError("Paciente no registrado")
-        medico = self.medicos.get(rut_medico)
-        if not medico: raise EntidadNotFoundError("Medico no registrado")
-        # Validar que el medico no exceda su limite
-        if len(medico.citas_del_dia) >= medico.capacidad_atencion:
-            raise CapacidadMedicoExcedidaError(f"El medico {medico.nombre} ya no tiene cupos disponibles")
-        # Generar nueva cita
-        nueva_cita = Cita(paciente, medico)
-        self.lista_citas[nueva_cita.id] = nueva_cita
-        paciente.citas.append(nueva_cita)
-        medico.citas_del_dia.append(nueva_cita)
-        db.insertar_cita(nueva_cita)
-        return nueva_cita
+        try:
+            # Validar instancia en diccionario
+            paciente = self.pacientes.get(rut_paciente)
+            if not paciente: raise EntidadNotFoundError("Paciente no registrado")
+            medico = self.medicos.get(rut_medico)
+            if not medico: raise EntidadNotFoundError("Medico no registrado")
+            # Validar que el medico no exceda su limite
+            if len(medico.citas_del_dia) >= medico.capacidad_atencion:
+                raise CapacidadMedicoExcedidaError(f"El medico {medico.nombre} ya no tiene cupos disponibles")
+            # Generar nueva cita
+            nueva_cita = Cita(paciente, medico)
+            self.lista_citas[nueva_cita.id] = nueva_cita
+            paciente.citas.append(nueva_cita)
+            medico.citas_del_dia.append(nueva_cita)
+            db.insertar_cita(nueva_cita)
+
+            logger.info(f"Cita generada [{nueva_cita.id}] entre: Paciente: {paciente.nombre} - Medico: {medico.nombre}")
+            return nueva_cita
+        except Exception as e:
+            logger.error(f"Fallo al generar la cita: {e}")
+            raise
 
     # Estados de citas -----
     def confirmar_cita(self, rut_paciente, id_cita):
         _, cita = self._validar_cita(rut_paciente, id_cita)
-        cita.confirmar()
-        db.actualizar_estado_cita(cita.id, cita.estado.value)
-        return cita
+        try:
+            cita.confirmar()
+            db.actualizar_estado_cita(cita.id, cita.estado.value)
+            logger.info(f"Cita {id_cita} CONFIRMADA para paciente {rut_paciente}")
+            return cita
+        except EstadoCitaError as e:
+            logger.error(f"Error lógico en Cita {id_cita}: {e}")
+            raise
 
     def cancelar_cita(self, rut_paciente, id_cita):
         _, cita = self._validar_cita(rut_paciente, id_cita)
-        cita.cancelar()
-        db.actualizar_estado_cita(cita.id, cita.estado.value)
-        return cita
+        try:
+            cita.cancelar()
+            db.actualizar_estado_cita(cita.id, cita.estado.value)
+            logger.info(f"Cita {id_cita} CANCELADA para paciente {rut_paciente}")
+            return cita
+        except EstadoCitaError as e:
+            logger.error(f"Error lógico en Cita {id_cita}: e")
 
     def finalizar_cita(self, rut_paciente, id_cita):
         _, cita = self._validar_cita(rut_paciente, id_cita)
-        cita.finalizar()
-        db.actualizar_estado_cita(cita.id, cita.estado.value)
-        return cita
+        try:
+            cita.finalizar()
+            db.actualizar_estado_cita(cita.id, cita.estado.value)
+            logger.info(f"Cita {id_cita} FINALIZADA para paciente {rut_paciente}")
+            return cita
+        except ClinicaError as e:
+            logger.error(f"Error lógico en cita {id_cita}: {e}")
+            raise
 
     def _validar_cita(self, rut_paciente, id_cita):
-        paciente = self.pacientes.get(rut_paciente)
-        if not paciente: raise EntidadNotFoundError("El paciente no se encuentra registrado")
-        cita = self.lista_citas.get(id_cita)
-        if not cita: raise CitaNotFoundError("Cita no encontrada")
+        try:
+            paciente = self.pacientes.get(rut_paciente)
+            if not paciente: raise EntidadNotFoundError("El paciente no se encuentra registrado")
 
-        if cita.paciente != paciente: raise AutenticationError("El rut no coincide con la cita")
+            cita = self.lista_citas.get(id_cita)
+            if not cita: raise CitaNotFoundError("Cita no encontrada")
 
-        return paciente, cita
+            if cita.paciente != paciente: raise AutenticationError("El rut no coincide con la cita")
+
+            return paciente, cita
+        except ClinicaError as e:
+            logger.error(f"Fallo de validacion: {e}")
+            raise
 
     # Listado de citas -----
     def obtener_todas_las_citas(self):
         return list(self.lista_citas.values())
 
     def obtener_lista_paciente(self, rut):
-        paciente = self.pacientes.get(rut)
-        if not paciente: raise EntidadNotFoundError("Paciente no registrado")
-        return paciente.citas
+        try:
+            paciente = self.pacientes.get(rut)
+            if not paciente: 
+                logger.warning(f"Consulta fallida: RUT de paciente no encontrado ({rut})")
+                raise EntidadNotFoundError("Paciente no registrado")
+            logger.debug(f"Listado de citas consultado para paciente: {rut}")
+            return paciente.citas
+        except Exception as e:
+            logger.error(f"Error al obtener lista de pacientes {rut}: {e}")
+            raise
 
     def obtener_lista_medico(self, rut):
-        medico = self.medicos.get(rut)
-        if not medico: raise EntidadNotFoundError("Medico no registrado")
-        return medico.citas_del_dia
+        try:
+            medico = self.medicos.get(rut)
+            if not medico: 
+                logger.warning(f"Consulta fallida: RUT de medico no encontrado ({rut})")
+                raise EntidadNotFoundError("Medico no registrado")
+            logger.debug(f"Listado de citas consultado para medico: {rut}")
+            return medico.citas_del_dia
+        except Exception as e:
+            logger.error(f"Error al obtener lista de medico {rut}: {e}")
+            raise
