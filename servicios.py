@@ -54,7 +54,6 @@ class Recepcion:
 
         Cita.contador_id = max_id + 1
 
-
     # ----- Registros -----
     def registrar_paciente(self, rut, nombre, edad):
         try:
