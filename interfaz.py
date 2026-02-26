@@ -66,9 +66,11 @@ def mostrar_menu(recepcion):
             rut_p = str(input("RUT del paciente: "))
             if not rut_p: continue
             rut_m = str(input("RUT del medico: "))
+            fecha_input = str(input("Ingrese la fecha y hora (DD-MM-YYYY HH:MM: )"))
 
             try:
-                cita = recepcion.generar_cita(rut_p, rut_m)
+                cita = recepcion.generar_cita(rut_p, rut_m, fecha_input)
+                print(f"Cita: [{cita.id}] generada con exito para el {fecha_input}")
             except ClinicaError as e: 
                 print(f"Error: {e}")
                 continue

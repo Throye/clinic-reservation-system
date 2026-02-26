@@ -40,6 +40,7 @@ def iniciar_db():
                     rut_paciente TEXT,
                     rut_medico TEXT,
                     estado TEXT,
+                    fecha_hora DATETIME,
                     FOREIGN KEY (rut_paciente) REFERENCES pacientes(rut),
                     FOREIGN KEY (rut_medico) REFERENCES medicos(rut)
                 )
@@ -88,8 +89,9 @@ def obtener_todos_los_medicos():
 def insertar_cita(cita):
     conn = conectar()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO citas (id, rut_paciente, rut_medico, estado) VALUES (?,?,?,?)",
-                    (cita.id, cita.paciente.rut, cita.medico.rut, cita.estado.value))
+    fecha_str = cita.fecha_hora.strftime("%d-%m-%Y %H:%M")
+    cursor.execute("INSERT INTO citas (id, rut_paciente, rut_medico, estado, fecha_hora) VALUES (?,?,?,?,?)",
+                    (cita.id, cita.paciente.rut, cita.medico.rut, cita.estado.value, fecha_str))
     conn.commit()
     conn.close()
 

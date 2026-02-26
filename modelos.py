@@ -9,10 +9,11 @@ class EstadoCita(Enum):
     AUSENTE = "Ausente"
 class Cita:
     contador_id = 1
-    def __init__(self, paciente, medico):
+    def __init__(self, paciente, medico, fecha_hora):
         self.id = Cita.contador_id
         self.paciente = paciente
         self.medico = medico
+        self.fecha_hora = fecha_hora
         self.estado = EstadoCita.RESERVADA # Estado por defecto al generar cita
         Cita.contador_id += 1
 
@@ -40,7 +41,8 @@ class Cita:
             raise EstadoCitaError("No es posible finalizar una cita que no haya sido confirmada")
 
     def __str__(self):
-        return f"ID: {self.id} | Paciente: {self.paciente.nombre} | Medico: {self.medico.nombre} | Estado: {self.estado.value}"
+        fecha_f = self.fecha_hora.strftime("%d-%m-%Y %H:%M")
+        return f"ID: {self.id} | Fecha: {fecha_f} | Paciente: {self.paciente.nombre} | Medico: {self.medico.nombre} | Estado: {self.estado.value}"
 
 class Paciente:
     def __init__(self, rut, nombre, edad):

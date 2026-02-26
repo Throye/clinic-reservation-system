@@ -1,8 +1,10 @@
+from operator import truediv
 from modelos import Paciente, Medico, Cita, EstadoCita
 from excepciones import AutenticationError, CapacidadMedicoExcedidaError, CitaNotFoundError, ClinicaError, EntidadNotFoundError, EntidadYaExisteError, EstadoCitaError
-from utilidades import  formatear_texto, normalizar_rut
+from utilidades import  formatear_texto, normalizar_rut, validar_y_formatear_fecha
 from database import db
 import logging
+from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
@@ -35,13 +37,14 @@ class Recepcion:
         filas_citas = db.obtener_citas()
         max_id = 0
         for fila in filas_citas:
-            id_db, rut_p, rut_m, estado_str = fila
+            id_db, rut_p, rut_m, estado_str, fecha_str = fila
             paciente = self.pacientes.get(rut_p)
             medico = self.medicos.get(rut_m)
 
             if paciente and medico:
+                f_h = datetime.strptime(fecha_str, "%d-%m-%Y %H:%M")
                 # crear cita
-                nueva_cita = Cita(paciente, medico)
+                nueva_cita = Cita(paciente, medico, f_h)
                 nueva_cita.id = id_db
                 nueva_cita.estado = EstadoCita(estado_str)
                 # guardar cita
@@ -97,28 +100,35 @@ class Recepcion:
             raise
 
     # ----- Citas -----
-    def generar_cita(self, rut_paciente, rut_medico):
+    def generar_cita(self, rut_paciente, rut_medico, fecha_str):
         try:
             # limpiar datos
             rut_p = normalizar_rut(rut_paciente)
             rut_m = normalizar_rut(rut_medico)
+            fecha_cita = validar_y_formatear_fecha(fecha_str)
             # Validar instancia en diccionario
             paciente = self.pacientes.get(rut_p)
-            if not paciente: raise EntidadNotFoundError("Paciente no registrado")
             medico = self.medicos.get(rut_m)
+            if not paciente: raise EntidadNotFoundError("Paciente no registrado")
             if not medico: raise EntidadNotFoundError("Medico no registrado")
+            # validar si medico tiene cita en el rango +- 30 mins
+            for cita_existe in medico.citas_del_dia:
+                diferencia = abs((cita_existe.fecha_hora - fecha_cita).total_seconds() / 60)
+                if diferencia < 30 and cita_existe.estado != EstadoCita.CANCELADA:
+                    raise ClinicaError(f"El medico ya tiene una cita a las {cita_existe.fecha_hora.strftime('%H:%M')}. "
+                    "Debe haber al menos 30 min de diferencia.")
             # Validar que el medico no exceda su limite
             if len(medico.citas_del_dia) >= medico.capacidad_atencion:
-                raise CapacidadMedicoExcedidaError(f"El medico {medico.nombre} ya no tiene cupos disponibles")
+                raise CapacidadMedicoExcedidaError(f"Cupos agotados para el médico {medico.nombre}")
             # Generar nueva cita
-            nueva_cita = Cita(paciente, medico)
+            nueva_cita = Cita(paciente, medico, fecha_cita)
             # Guardar cita en medico, paciente, memoria y db
             self.lista_citas[nueva_cita.id] = nueva_cita
             paciente.citas.append(nueva_cita)
             medico.citas_del_dia.append(nueva_cita)
             db.insertar_cita(nueva_cita)
             # Registrar en logger y devolver dato
-            logger.info(f"Cita generada [{nueva_cita.id}] entre: Paciente: {paciente.nombre} - Medico: {medico.nombre}")
+            logger.info(f"Cita [{nueva_cita.id} generada para el {fecha_str}]")
             return nueva_cita
         except Exception as e:
             logger.error(f"Fallo al generar la cita: {e}")
@@ -126,10 +136,15 @@ class Recepcion:
 
     # Estados de citas -----
     def confirmar_cita(self, rut_paciente, id_cita):
-        _, cita = self._validar_cita(rut_paciente, id_cita)
         try:
-            cita.confirmar()
-            db.actualizar_estado_cita(cita.id, cita.estado.value)
+            _, cita = self._validar_cita(rut_paciente, id_cita)
+            if self._verificar_expiracion_cita(cita):
+                raise EstadoCitaError(f"No es posible confirmar: El paciente sobre paso la hora limite "
+                f"\nCita programada a las {cita.fecha_hora.strftime('%H:%M')} "
+                f"\nHora Actual {datetime.now().strftime('%H:%M')} ")
+
+            estado_nuevo = cita.confirmar()
+            db.actualizar_estado_cita(cita.id, estado_nuevo.value)
             logger.info(f"Cita {id_cita} CONFIRMADA para paciente {rut_paciente}")
             return cita
         except EstadoCitaError as e:
@@ -137,8 +152,8 @@ class Recepcion:
             raise
 
     def cancelar_cita(self, rut_paciente, id_cita):
-        _, cita = self._validar_cita(rut_paciente, id_cita)
         try:
+            _, cita = self._validar_cita(rut_paciente, id_cita)
             cita.cancelar()
             db.actualizar_estado_cita(cita.id, cita.estado.value)
             logger.info(f"Cita {id_cita} CANCELADA para paciente {rut_paciente}")
@@ -147,8 +162,8 @@ class Recepcion:
             logger.error(f"Error lógico en Cita {id_cita}: {e}")
 
     def finalizar_cita(self, rut_paciente, id_cita):
-        _, cita = self._validar_cita(rut_paciente, id_cita)
         try:
+            _, cita = self._validar_cita(rut_paciente, id_cita)
             cita.finalizar()
             db.actualizar_estado_cita(cita.id, cita.estado.value)
             logger.info(f"Cita {id_cita} FINALIZADA para paciente {rut_paciente}")
@@ -174,6 +189,18 @@ class Recepcion:
         except ClinicaError as e:
             logger.error(f"Fallo de validacion: {e}")
             raise
+
+    def _verificar_expiracion_cita(self, cita):
+        """
+        Si la cita está RESERVADA y ya pasó la hora programada, 
+        pasa automaticamente a CANCELADA p or atras.
+        """
+        if cita.estado == EstadoCita.RESERVADA and datetime.now() > cita.fecha_hora:
+            cita.estado = EstadoCita.CANCELADA
+            db.actualizar_estado_cita(cita.id, cita.estado.value)
+            logger.info(f"Cita {cita.id} cancelada automaticamente por inasistencia (Hora: {cita.fecha_hora})")
+            return True
+        return False
 
     # Listado de citas -----
     def obtener_todas_las_citas(self):
