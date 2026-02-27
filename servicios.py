@@ -1,4 +1,3 @@
-from operator import truediv
 from modelos import Paciente, Medico, Cita, EstadoCita
 from excepciones import AutenticationError, CapacidadMedicoExcedidaError, CitaNotFoundError, ClinicaError, EntidadNotFoundError, EntidadYaExisteError, EstadoCitaError
 from utilidades import  formatear_texto, normalizar_rut, validar_y_formatear_fecha
@@ -15,7 +14,7 @@ class Recepcion:
         self.medicos = {} # {rut: <medico>}
         self.lista_citas = {} # [id: <cita>]
 
-    # ---------- Cargar datos desde db ----------
+    # ---------- Cargar datos desde db a memoria ----------
     def cargar_datos_desde_db(self):
         self._cargar_pacientes()
         self._cargar_medicos()  
