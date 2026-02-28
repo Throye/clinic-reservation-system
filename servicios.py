@@ -1,5 +1,5 @@
 from modelos import Paciente, Medico, Cita, EstadoCita
-from excepciones import AutenticationError, CapacidadMedicoExcedidaError, CitaNotFoundError, ClinicaError, EntidadNotFoundError, EntidadYaExisteError, EstadoCitaError
+from excepciones import AutenticationError, BusquedaInvalidaError, CapacidadMedicoExcedidaError, CitaNotFoundError, ClinicaError, EntidadNotFoundError, EntidadYaExisteError, EstadoCitaError
 from utilidades import  formatear_texto, normalizar_rut, validar_y_formatear_fecha
 from database import db
 import logging
@@ -228,4 +228,62 @@ class Recepcion:
             return medico.citas_del_dia
         except Exception as e:
             logger.error(f"Error al obtener lista de medico {rut}: {e}")
+            raise
+
+    # obtener datos -----
+    def obtener_todos_los_pacientes(self):
+        try: 
+            pacientes = list(self.pacientes.values())
+            if not pacientes:
+                logger.warning("Consulta de pacientes: La base de datos está vacía")
+            logger.debug(f"Se listaron {len(pacientes)} pacientes")
+            return pacientes
+        except Exception as e:
+            logger.error(f"Error al listar pacientes: {e}")
+            raise
+
+    def obtener_todos_los_medicos(self):
+        try:
+            medicos = list(self.medicos.values())
+            if not medicos:
+                logger.warning("Consulta de medicos: la base de datos está vacía")
+            logger.debug(f"Se listaron {len(medicos)} medicos")
+            return medicos
+        except Exception as e:
+            logger.error(f"Error al listar medicos: {e}")
+            raise
+
+    def buscar_medicos_por_especialidad(self, especialidad):
+        try:
+            term = especialidad.lower().strip()
+
+            if not term:
+                logger.warning("Intendo de búsqueda con término vacío")
+                raise BusquedaInvalidaError("El término de búsqueda no puede estar vacio")
+
+            resultados = [m for m in self.medicos.values() if term in m.especialidad.lower()]
+
+            if not resultados:
+                logger.warning(f"Búsqueda sin resultados para especialidad: {term}")
+                raise EntidadNotFoundError(f"No se encontraron médicos con la especialidad: {especialidad}")
+            
+            logger.info(f"Búsqueda exitosa: {len(resultados)} médicos encontrados en {term}")
+            return resultados
+        except ClinicaError:
+            raise
+        except Exception as e:
+            logger.error(f"Error en búsqueda de especialidad: {e}")
+            raise
+
+    def obtener_cita_por_id(self, id_cita):
+        try:
+            cita = self.lista_citas.get(id_cita)
+            if not cita:
+                logger.warning(f"Consulta de la cita fallida: ID {id_cita}")
+                raise CitaNotFoundError(f"No se encontró la cita con la ID: {id_cita}")
+            
+            logger.debug(f"Cita {id_cita} consultada con éxito")
+            return cita
+        except Exception as e:
+            logger.error(f"Error al obtener cita {id_cita}: {e}")
             raise

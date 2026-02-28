@@ -82,34 +82,62 @@ def menu_citas(recepcion):
 
 def menu_reportes(recepcion):
     while True:
-        print("\n"+"="*30)
-        print("CONSULTAS Y REPORTES")
-        print("="*30)
-        print("1. Ver Todas las Citas")
-        print("2. Buscar Citas por Paciente")
-        print("3. Buscar Citas por Médico")
-        print("4. Volver al Menú Principal")
+        print("\n" + "="*35)
+        print("📊 PANEL DE CONSULTAS Y REPORTES")
+        print("="*35)
+        print("1. Ver Listado de Pacientes")
+        print("2. Ver Listado de Médicos")
+        print("3. Buscar Médicos por Especialidad")
+        print("4. Ver Todas las Citas (General)")
+        print("5. Buscar Cita específica (por ID)")
+        print("6. Historial por Paciente (RUT)")
+        print("7. Historial por Médico (RUT)")
+        print("8. Volver al Menú Principal")
+        
+        op = input("\nSeleccione consulta: ")
 
-        op = input("\nSeleccione una opción: ")
+        try:
+            if op == "1":
+                print("\n--- PACIENTES REGISTRADOS ---")
+                for p in recepcion.obtener_todos_los_pacientes():
+                    print(f"RUT: {p.rut} | Nombre: {p.nombre} | Edad: {p.edad}")
 
-        if op == "1":
-            citas = recepcion.obtener_todas_las_citas()
-            for c in citas: print(c)
+            elif op == "2":
+                print("\n--- CUERPO MÉDICO ---")
+                for m in recepcion.obtener_todos_los_medicos():
+                    print(f"RUT: {m.rut} | Nombre: {m.nombre} | Especialidad: {m.especialidad}")
 
-        elif op == "2":
-            rut = input("RUT Paciente: ")
-            try:
+            elif op == "3":
+                esp = input("Ingrese especialidad a buscar: ")
+                if not esp.strip(): continue
+                try:
+                    resultados = recepcion.buscar_medicos_por_especialidad(esp)
+                    print(f"\n--- médicos en {esp.title()} ---")
+                    for m in resultados:
+                        print(f"Médico:{m.nombre} | Especialidad: {m.especialidad} | RUT: {m.rut}")
+                except ClinicaError as e:
+                    print(f"Error: {e}")
+
+            elif op == "4":
+                for c in recepcion.obtener_todas_las_citas(): print(c)
+
+            elif op == "5":
+                id_c = int(input("ID de la cita: "))
+                print(recepcion.obtener_cita_por_id(id_c))
+
+            elif op == "6":
+                rut = input("RUT Paciente: ")
                 for c in recepcion.obtener_lista_paciente(rut): print(c)
-            except ClinicaError as e: print(e)
 
-        elif op == "3":
-            rut = input("RUT Médico: ")
-            try:
+            elif op == "7":
+                rut = input("RUT Médico: ")
                 for c in recepcion.obtener_lista_medico(rut): print(c)
-            except ClinicaError as e: print(e)
 
-        elif op == "4":
-            break
+            elif op == "8":
+                break
+        except ClinicaError as e: print(f"\n Aviso: {e}")
+        except ValueError: print("\n Error: Por favor, ingrese un número válido")
+        except Exception as e: print(f"\n Error inesperado: {e}")
 
 
 def mostrar_menu(recepcion):

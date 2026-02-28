@@ -9,3 +9,4 @@ class EstadoCitaError(ClinicaError): pass
 class EntidadYaExisteError(ClinicaError): pass
 class EntidadNotFoundError(ClinicaError): pass
 class CapacidadMedicoExcedidaError(ClinicaError): pass
+class BusquedaInvalidaError(ClinicaError): pass
