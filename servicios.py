@@ -3,7 +3,7 @@ from excepciones import AutenticationError, BusquedaInvalidaError, CapacidadMedi
 from utilidades import  formatear_texto, normalizar_rut, validar_y_formatear_fecha
 from database import db
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 logger = logging.getLogger(__name__)
@@ -110,14 +110,18 @@ class Recepcion:
             medico = self.medicos.get(rut_m)
             if not paciente: raise EntidadNotFoundError("Paciente no registrado")
             if not medico: raise EntidadNotFoundError("Medico no registrado")
-            # validar si medico tiene cita en el rango +- 30 mins
-            for cita_existe in medico.citas_del_dia:
-                diferencia = abs((cita_existe.fecha_hora - fecha_cita).total_seconds() / 60)
-                if diferencia < 30 and cita_existe.estado != EstadoCita.CANCELADA:
-                    raise ClinicaError(f"El medico ya tiene una cita a las {cita_existe.fecha_hora.strftime('%H:%M')}. "
-                    "Debe haber al menos 30 min de diferencia.")
+            # validación con el buscador de disponibilidad
+            fecha_solo_str = fecha_cita.strftime("%d-%m-%Y")
+            hora_cita_str = fecha_cita.strftime("%H:%M")
+            # bloques libres de ese dia
+            libres = self.obtener_disponibilidad_medico(rut_m, fecha_solo_str)
+            # validar si la hora que el usuario ingreso no esta en la lista de bloques libres
+            if hora_cita_str not in libres:
+                raise ClinicaError(f"El horario {hora_cita_str} no esta disponible "
+                                    "(fuera de jornada, horario de almuerzo u ocupada)")
             # Validar que el medico no exceda su limite
-            if len(medico.citas_del_dia) >= medico.capacidad_atencion:
+            citas_dia_validas = [cita for cita in medico.citas_del_dia if cita.estado != EstadoCita.CANCELADA and cita.fecha_hora.date() == fecha_cita.date()]
+            if len(citas_dia_validas) >= medico.capacidad_atencion:
                 raise CapacidadMedicoExcedidaError(f"Cupos agotados para el médico {medico.nombre}")
             # Generar nueva cita
             nueva_cita = Cita(paciente, medico, fecha_cita)
@@ -230,7 +234,7 @@ class Recepcion:
             logger.error(f"Error al obtener lista de medico {rut}: {e}")
             raise
 
-    # obtener datos -----
+    # ----- obtener datos -----
     def obtener_todos_los_pacientes(self):
         try: 
             pacientes = list(self.pacientes.values())
@@ -287,3 +291,45 @@ class Recepcion:
         except Exception as e:
             logger.error(f"Error al obtener cita {id_cita}: {e}")
             raise
+
+    def obtener_disponibilidad_medico(self, rut_medico, fecha_str):
+        """ 
+        Calcula los bloques de 30 min disponibles para un médico en una fecha dada.
+        fecha_str formato DD-MM-YYYY
+        """
+        rut_m = normalizar_rut(rut_medico)
+        medico = self.medicos.get(rut_m)
+        if not medico: raise EntidadNotFoundError("Medico no registrado")
+
+        # Crear objetos datetime para el dia solicitado
+        fecha_base = datetime.strptime(fecha_str, "%d-%m-%Y")
+        inicio_jornada = datetime.strptime(f"{fecha_str} {medico.hora_inicio}", "%d-%m-%Y %H:%M")
+        fin_jornada = datetime.strptime(f"{fecha_str} {medico.hora_fin}", "%d-%m-%Y %H:%M")
+        inicio_almuerzo = datetime.strptime(f"{fecha_str} {medico.inicio_almuerzo}", "%d-%m-%Y %H:%M")
+        fin_almuerzo = datetime.strptime(f"{fecha_str} {medico.fin_almuerzo}", "%d-%m-%Y %H:%M")
+
+        # Filtrar citas del médico que coincidan exactamente con esta fecha
+        citas_del_dia_filtrado = [
+            cita for cita in self.lista_citas.values()
+            if cita.medico.rut == rut_m and cita.fecha_hora.date() == fecha_base.date()
+        ]
+        horas_ocupadas = [cita.fecha_hora for cita in citas_del_dia_filtrado]
+
+        bloques_disponibles = []
+        hora_actual = inicio_jornada
+
+        while hora_actual < fin_jornada:
+            if inicio_almuerzo <= hora_actual < fin_almuerzo:
+                hora_actual = fin_almuerzo
+                continue
+            
+            if hora_actual not in horas_ocupadas:
+                if hora_actual > datetime.now():
+                    bloques_disponibles.append(hora_actual.strftime("%H:%M"))
+            
+            hora_actual += timedelta(minutes=30)
+        
+        if not bloques_disponibles:
+            logger.warning(f"El médico {medico.nombre} no tiene disponibilidad para la fecha {fecha_str}")
+        
+        return bloques_disponibles

@@ -46,10 +46,11 @@ def menu_citas(recepcion):
         print("GESTION DE CITAS")
         print("="*30)
         print("1. Generar Nueva Cita")
-        print("2. Confirmar Asistencia")
-        print("3. Cancelar Cita")
-        print("4. Finalizar Cita (Atendida)")
-        print("5. Volver al Menú principal")
+        print("2. Consultar Disponibilidad")
+        print("3. Confirmar Asistencia")
+        print("4. Cancelar Cita")
+        print("5. Finalizar Cita (Atendida)")
+        print("6. Volver al Menú principal")
         op = input("\nSeleccione una opción: ")
         try:
             if op == "1":
@@ -58,24 +59,37 @@ def menu_citas(recepcion):
                 fecha = input("Fecha y Hora (DD-MM-YYY HH:MM): ")
                 cita = recepcion.generar_cita(rut_p, rut_m, fecha)
                 print(f"Cita ID {cita.id} generada.")
+
             elif op == "2":
+                rut_m = input("RUT Medico: ")
+                fecha = input("Fecha (DD-MM-YYYY): ")
+                libres = recepcion.obtener_disponibilidad_medico(rut_m, fecha)
+                print(f"\n--- Horarios disponibles para el {fecha} ---")
+                if not libres: (print("No hay bloques libres para esta fecha"))
+                else:
+                    for i, hora in enumerate(libres):
+                        print(f"[{hora}]", end="\t" if (i+1)%4 != 0 else "\n")
+                    print("\n")
+
+            elif op == "3":
                 rut_p = input("RUT Paciente: ")
                 id_c = int(input("ID de la cita: "))
                 recepcion.confirmar_cita(rut_p, id_c)
                 print("Cita Confirmada")
-            elif op == "3":
+
+            elif op == "4":
                 rut_p = input("RUT Paciente: ")
                 id_c = int(input("ID de la cita: "))
                 recepcion.cancelar_cita(rut_p, id_c)
                 print("Cita cancelada")
             
-            elif op == "4":
+            elif op == "5":
                 rut_p = input("RUT Paciente: ")
                 id_c = int(input("ID de la cita: "))
                 recepcion.finalizar_cita(rut_p, id_c)
                 print("Cita finalizada.")
             
-            elif op == "5":
+            elif op == "6":
                 break
         except (ClinicaError, ValueError) as e:
             print(f"Error: {e}")

@@ -52,9 +52,16 @@ class Paciente:
         self.citas = []
 
 class Medico:
-    def __init__(self, rut, nombre, especialidad, capacidad_atencion):
+    def __init__(self, rut, nombre, especialidad, capacidad_atencion,
+                hora_inicio="08:00", hora_fin="17:00",
+                inicio_almuerzo="13:00", fin_almuerzo="14:00"):
         self.rut = rut
         self.nombre = nombre
         self.especialidad = especialidad
         self.capacidad_atencion = capacidad_atencion
+        # Atributos de horarios
+        self.hora_inicio = hora_inicio
+        self.hora_fin = hora_fin
+        self.inicio_almuerzo = inicio_almuerzo
+        self.fin_almuerzo = fin_almuerzo
         self.citas_del_dia = []

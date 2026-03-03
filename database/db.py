@@ -30,7 +30,11 @@ def iniciar_db():
                     rut TEXT PRIMARY KEY,
                     nombre TEXT NOT NULL,
                     especialidad TEXT NOT NULL,
-                    capacidad INTEGER NOT NULL
+                    capacidad INTEGER NOT NULL,
+                    hora_inicio TEXT NOT NULL,
+                    hora_fin TEXT NOT NULL,
+                    inicio_almuerzo TEXT NOT NULL,
+                    fin_almuerzo TEXT NOT NULL
                 )
             """)
             # tabla de citas
@@ -72,8 +76,9 @@ def obtener_todos_los_pacientes():
 def insertar_medico(medico):
     conn = conectar()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO medicos VALUES (?,?,?,?)",
-                    (medico.rut, medico.nombre, medico.especialidad, medico.capacidad_atencion))
+    cursor.execute("INSERT INTO medicos VALUES (?,?,?,?,?,?,?,?)",
+                    (medico.rut, medico.nombre, medico.especialidad, medico.capacidad_atencion,
+                    medico.hora_inicio, medico.hora_fin, medico.inicio_almuerzo, medico.fin_almuerzo))
     conn.commit()
     conn.close()
 
