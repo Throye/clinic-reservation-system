@@ -57,60 +57,46 @@ def iniciar_db():
 
 # ----- registrar y obtener pacientes -----
 def insertar_paciente(paciente):
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO pacientes VALUES (?,?,?)", 
-                    (paciente.rut, paciente.nombre, paciente.edad))
-    conn.commit()
-    conn.close()
+    with conectar() as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO pacientes VALUES (?,?,?)", 
+                        (paciente.rut, paciente.nombre, paciente.edad))
 
 def obtener_todos_los_pacientes():
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM pacientes")
-    filas = cursor.fetchall()
-    conn.close()
-    return filas
+    with conectar() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM pacientes")
+        return cursor.fetchall()
 
 # ----- registrar y obtener medicos -----
 def insertar_medico(medico):
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO medicos VALUES (?,?,?,?,?,?,?,?)",
-                    (medico.rut, medico.nombre, medico.especialidad, medico.capacidad_atencion,
-                    medico.hora_inicio, medico.hora_fin, medico.inicio_almuerzo, medico.fin_almuerzo))
-    conn.commit()
-    conn.close()
+    with conectar() as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO medicos VALUES (?,?,?,?,?,?,?,?)",
+                        (medico.rut, medico.nombre, medico.especialidad, medico.capacidad_atencion,
+                        medico.hora_inicio, medico.hora_fin, medico.inicio_almuerzo, medico.fin_almuerzo))
 
 def obtener_todos_los_medicos():
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM medicos")
-    filas = cursor.fetchall()
-    conn.close()
-    return filas
+    with conectar() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM medicos")
+        return cursor.fetchall()
 
 # ----- registrar y obtener citas -----
 def insertar_cita(cita):
-    conn = conectar()
-    cursor = conn.cursor()
-    fecha_str = cita.fecha_hora.strftime("%d-%m-%Y %H:%M")
-    cursor.execute("INSERT INTO citas (id, rut_paciente, rut_medico, estado, fecha_hora) VALUES (?,?,?,?,?)",
-                    (cita.id, cita.paciente.rut, cita.medico.rut, cita.estado.value, fecha_str))
-    conn.commit()
-    conn.close()
+    with conectar() as conn:
+        cursor = conn.cursor()
+        fecha_iso = cita.fecha_hora.strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("INSERT INTO citas (id, rut_paciente, rut_medico, estado, fecha_hora) VALUES (?,?,?,?,?)",
+                        (cita.id, cita.paciente.rut, cita.medico.rut, cita.estado.value, fecha_iso))
 
 def actualizar_estado_cita(id_cita, nuevo_estado):
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE citas SET estado = ? WHERE id = ?", (nuevo_estado, id_cita))
-    conn.commit()
-    conn.close()
+    with conectar() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE citas SET estado = ? WHERE id = ?", (nuevo_estado, id_cita))
 
 def obtener_citas():
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM citas")
-    filas = cursor.fetchall()
-    conn.close()
-    return filas
+    with conectar() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM citas")
+        return cursor.fetchall()

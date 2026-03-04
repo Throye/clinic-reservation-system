@@ -43,7 +43,7 @@ class Recepcion:
             medico = self.medicos.get(rut_m)
 
             if paciente and medico:
-                f_h = datetime.strptime(fecha_str, "%d-%m-%Y %H:%M")
+                f_h = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M:%S")
                 # crear cita
                 nueva_cita = Cita(paciente, medico, f_h)
                 nueva_cita.id = id_db
@@ -69,7 +69,9 @@ class Recepcion:
                 raise EntidadYaExisteError("El RUT ya se encuentra registrado")
             # agregar a memoria y db
             nuevo_paciente = Paciente(rut_f, nombre_f, edad)
+
             db.insertar_paciente(nuevo_paciente)
+
             self.pacientes[nuevo_paciente.rut] = nuevo_paciente
             # registrar en logger y devolver dato
             logger.info(f"paciente registrado: {nombre} (RUT: {rut})")
@@ -90,7 +92,9 @@ class Recepcion:
                 raise EntidadYaExisteError("El RUT ya se encuentra registrado")
             # agregar a memoria y a db
             nuevo_medico = Medico(rut_f, nombre_f, especialidad_f, capacidad_atencion)
+
             db.insertar_medico(nuevo_medico)
+
             self.medicos[nuevo_medico.rut] = nuevo_medico
             # registrar en logger y devolver medico
             logger.info(f"Medico registrado: {nombre} (RUT: {rut})")
@@ -107,6 +111,7 @@ class Recepcion:
             rut_p = normalizar_rut(rut_paciente)
             rut_m = normalizar_rut(rut_medico)
             fecha_cita = validar_y_formatear_fecha(fecha_str)
+            fecha_cita = fecha_cita.replace(second=0, microsecond=0)
             # Validar instancia en diccionario
             paciente = self.pacientes.get(rut_p)
             medico = self.medicos.get(rut_m)
@@ -128,12 +133,13 @@ class Recepcion:
             # Generar nueva cita
             nueva_cita = Cita(paciente, medico, fecha_cita)
             # Guardar cita en medico, paciente, memoria y db
+            db.insertar_cita(nueva_cita)
+
             self.lista_citas[nueva_cita.id] = nueva_cita
             paciente.citas.append(nueva_cita)
             medico.citas_del_dia.append(nueva_cita)
-            db.insertar_cita(nueva_cita)
             # Registrar en logger y devolver dato
-            logger.info(f"Cita [{nueva_cita.id} generada para el {fecha_str}]")
+            logger.info(f"Cita [{nueva_cita.id}] generada para el {fecha_str}")
             return nueva_cita
         except Exception as e:
             logger.error(f"Fallo al generar la cita: {e}")
@@ -149,7 +155,9 @@ class Recepcion:
                 f"\nHora Actual {datetime.now().strftime('%H:%M')} ")
 
             estado_nuevo = cita.confirmar()
+
             db.actualizar_estado_cita(cita.id, estado_nuevo.value)
+
             logger.info(f"Cita {id_cita} CONFIRMADA para paciente {rut_paciente}")
             return cita
         except EstadoCitaError as e:
@@ -159,8 +167,11 @@ class Recepcion:
     def cancelar_cita(self, rut_paciente, id_cita):
         try:
             _, cita = self._validar_cita(rut_paciente, id_cita)
+
             cita.cancelar()
+
             db.actualizar_estado_cita(cita.id, cita.estado.value)
+
             logger.info(f"Cita {id_cita} CANCELADA para paciente {rut_paciente}")
             return cita
         except EstadoCitaError as e:
@@ -169,8 +180,11 @@ class Recepcion:
     def finalizar_cita(self, rut_paciente, id_cita):
         try:
             _, cita = self._validar_cita(rut_paciente, id_cita)
+
             cita.finalizar()
+
             db.actualizar_estado_cita(cita.id, cita.estado.value)
+
             logger.info(f"Cita {id_cita} FINALIZADA para paciente {rut_paciente}")
             return cita
         except ClinicaError as e:
