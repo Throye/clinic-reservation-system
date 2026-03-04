@@ -29,8 +29,10 @@ class Recepcion:
     def _cargar_medicos(self):
         filas = db.obtener_todos_los_medicos()
         for fila in filas:
-            rut, nombre, especialidad, capacidad_atencion = fila
-            self.medicos[rut] = Medico(rut, nombre, especialidad, capacidad_atencion)
+            rut, nombre, especialidad, cap, h_ini, h_fin, alm_ini, alm_fin = fila
+            self.medicos[rut] = Medico(rut, nombre, especialidad, cap,
+                                        hora_inicio=h_ini, hora_fin=h_fin,
+                                        inicio_almuerzo=alm_ini, fin_almuerzo=alm_fin)
 
     def _cargar_citas(self):
         filas_citas = db.obtener_citas()
