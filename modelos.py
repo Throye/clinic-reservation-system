@@ -65,3 +65,12 @@ class Medico:
         self.inicio_almuerzo = inicio_almuerzo
         self.fin_almuerzo = fin_almuerzo
         self.citas_del_dia = []
+
+class Usuario: 
+    def __init__(self, rut, nombre, rol):
+        self.rut = rut
+        self.nombre = nombre
+        self.rol = rol # admin o recepcionista
+
+    def __str__(self):
+        return f"{self.nombre} ({self.rol})"

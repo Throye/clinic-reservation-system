@@ -1,18 +1,44 @@
-from modelos import Paciente, Medico, Cita, EstadoCita
+from modelos import Paciente, Medico, Cita, Usuario, EstadoCita
 from excepciones import AutenticationError, BusquedaInvalidaError, CapacidadMedicoExcedidaError, CitaNotFoundError, ClinicaError, EntidadNotFoundError, EntidadYaExisteError, EstadoCitaError
 from utilidades import  formatear_texto, normalizar_rut, validar_y_formatear_fecha
 from database import db
-import logging
 from datetime import datetime, timedelta
+import logging
+import hashlib
+import hmac
 
 
 logger = logging.getLogger(__name__)
+
+
+def verificar_password(password_plana, password_hash_guardado):
+    """
+    Verifica una contraseña en texto plano contra el hash almacenado
+    en formato 'salt_hex:hash_hex' usando PBKDF2-HMAC-SHA256.
+    """
+    try:
+        salt_hex, hash_hex = password_hash_guardado.split(":")
+        salt = bytes.fromhex(salt_hex)
+        hash_almacenado = bytes.fromhex(hash_hex)
+
+        hash_intento = hashlib.pbkdf2_hmac(
+            "sha256",
+            password_plana.encode("utf-8"),
+            salt,
+            100_000,
+        )
+
+        return hmac.compare_digest(hash_intento, hash_almacenado)
+    except Exception as e:
+        logger.error(f"Error al verificar contraseña: {e}")
+        return False
 
 class Recepcion:
     def __init__(self):
         self.pacientes = {} # {rut: <paciente>}
         self.medicos = {} # {rut: <medico>}
         self.lista_citas = {} # [id: <cita>]
+        self.usuario_actual = None
 
     # ---------- Cargar datos desde db a memoria ----------
     def cargar_datos_desde_db(self):
@@ -349,3 +375,21 @@ class Recepcion:
             logger.warning(f"El médico {medico.nombre} no tiene disponibilidad para la fecha {fecha_str}")
         
         return bloques_disponibles
+
+
+    def autenticar(self, rut, password_intento):
+        rut_n = normalizar_rut(rut)
+        fila = db.obtener_usuario_por_rut(rut_n)
+
+        if not fila: 
+            logger.warning(f"Intento de login fallido: RUT {rut_n} no encontrado")
+            raise AutenticationError("Credenciales inválidas")
+
+        rut_db, nombre_db, hash_db, rol_db = fila
+
+        if verificar_password(password_intento, hash_db):
+            self.usuario_actual = Usuario(rut_db, nombre_db, rol_db)
+            return self.usuario_actual
+        else:
+            logger.warning("Error al validar contraseña")
+            raise AutenticationError("Credenciales inválidas")

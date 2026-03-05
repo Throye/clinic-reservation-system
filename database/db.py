@@ -1,4 +1,5 @@
 import sqlite3
+import hashlib
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -49,6 +50,15 @@ def iniciar_db():
                     FOREIGN KEY (rut_medico) REFERENCES medicos(rut)
                 )
             """)
+            # tabla de usuarios
+            cursor.execute(""" 
+                CREATE TABLE IF NOT EXISTS usuarios(
+                    rut TEXT PRIMARY KEY,
+                    nombre TEXT NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    rol TEXT CHECK(rol IN ('admin', 'recepcionista')) NOT NULL
+                )
+             """)
             conn.commit()
             print("Estructura de base de datos preparada con exito")
 
@@ -100,3 +110,27 @@ def obtener_citas():
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM citas")
         return cursor.fetchall()
+
+# ----- insertar y obtener usuario -----
+def insertar_usuario(rut, nombre, password_plana, rol):
+    # Usamos PBKDF2-HMAC con SHA-256 y una salt aleatoria
+    salt = os.urandom(16)
+    hash_bytes = hashlib.pbkdf2_hmac(
+        'sha256',
+        password_plana.encode('utf-8'),
+        salt,
+        100_000
+    )
+    # Guardamos salt y hash en formato hex separados por ":"
+    password_hash = f"{salt.hex()}:{hash_bytes.hex()}"
+
+    with conectar() as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO usuarios (rut, nombre, password_hash, rol) VALUES (?, ?, ?, ?)",
+                        (rut, nombre, password_hash, rol))
+
+def obtener_usuario_por_rut(rut):
+    with conectar() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM usuarios WHERE rut = ?", (rut,))
+        return cursor.fetchone()
