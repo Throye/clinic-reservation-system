@@ -1,16 +1,20 @@
-# ------------------ imports ------------------
-from database import db
-from interfaz import mostrar_menu
-from servicios import Recepcion
+import customtkinter as ctk
 from configuracion import configurar_logs
+from database.db import iniciar_db
+from gui.main_window import MainWindow
 
-
-# ------------------ inicio ------------------
-if __name__ == "__main__":
+def main():
     configurar_logs()
-    db.iniciar_db()
-
-    recepcion = Recepcion()
-    recepcion.cargar_datos_desde_db()
+    # Iniciamos la base de datos
+    iniciar_db()
     
-    mostrar_menu(recepcion)
+    # Configuramos el estilo visual
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
+
+    # Arrancamos la App
+    app = MainWindow()
+    app.mainloop()
+
+if __name__ == "__main__":
+    main()
